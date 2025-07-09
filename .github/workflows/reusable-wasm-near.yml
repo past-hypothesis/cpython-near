@@ -20,7 +20,7 @@ jobs:
       EMSCRIPTEN_VERSION: 4.0.10
       EMSDK_PATH: /opt/emsdk
       CROSS_BUILD_PYTHON: builddir/build
-      CROSS_BUILD_WASI: builddir/emscripten-near
+      CROSS_BUILD_EMSCRIPTEN_NEAR: builddir/emscripten-near
     steps:
     - uses: actions/checkout@v4
       with:
@@ -73,7 +73,7 @@ jobs:
     - name: "Restore host config.cache"
       uses: actions/cache@v4
       with:
-        path: ${{ env.CROSS_BUILD_WASI }}/config.cache
+        path: ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/config.cache
         # Should be kept in sync with the other config.cache step above.
         key: ${{ github.job }}-${{ env.IMAGE_OS_VERSION }}-${{ env.EMSCRIPTEN_VERSION }}-${{ inputs.config_hash }}-${{ hashFiles('Tools/wasm/wasm_build.py') }}-${{ env.pythonLocation }}
     - name: "Configure host"
@@ -82,7 +82,7 @@ jobs:
     - name: "Make host"
       run: python3 Tools/wasm/wasm_build.py emscripten-near make-host
     - name: "Display build info"
-      run: make --directory "${CROSS_BUILD_WASI}" pythoninfo
+      run: make --directory "${CROSS_BUILD_EMSCRIPTEN_NEAR}" pythoninfo
     - name: "Upload python.wasm"
       if: github.event_name == 'release'
       uses: actions/upload-release-asset@v1
@@ -90,7 +90,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ${{ CROSS_BUILD_WASI }}/python.wasm
+        asset_path: ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/python.wasm
         asset_name: python.wasm
         asset_content_type: application/wasm
     - name: "Upload python-stdlib.zip"
@@ -100,8 +100,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ${{ CROSS_BUILD_WASI }}/python-stdlib.zip
+        asset_path: ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/python-stdlib.zip
         asset_name: python-stdlib.zip
         asset_content_type: application/zip
     - name: "Test"
-      run: make --directory "${CROSS_BUILD_WASI}" test
+      run: make --directory "${CROSS_BUILD_EMSCRIPTEN_NEAR}" test
