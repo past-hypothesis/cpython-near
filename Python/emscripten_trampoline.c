@@ -9,24 +9,24 @@
  * This is the GoogleChromeLabs approved way to feature detect type-reflection:
  * https://github.com/GoogleChromeLabs/wasm-feature-detect/blob/main/src/detectors/type-reflection/index.js
  */
-EM_JS(int, _PyEM_detect_type_reflection, (), {
-    if (!("Function" in WebAssembly)) {
-        return false;
-    }
-    if (WebAssembly.Function.type) {
-        // Node v20
-        Module.PyEM_CountArgs = (func) => WebAssembly.Function.type(wasmTable.get(func)).parameters.length;
-    } else {
-        // Node >= 22, v8-based browsers
-        Module.PyEM_CountArgs = (func) => wasmTable.get(func).type().parameters.length;
-    }
-    return true;
-});
+//EM_JS(int, _PyEM_detect_type_reflection, (), {
+//    if (!("Function" in WebAssembly)) {
+//        return false;
+//    }
+//    if (WebAssembly.Function.type) {
+//        // Node v20
+//        Module.PyEM_CountArgs = (func) => WebAssembly.Function.type(wasmTable.get(func)).parameters.length;
+//    } else {
+//        // Node >= 22, v8-based browsers
+//        Module.PyEM_CountArgs = (func) => wasmTable.get(func).type().parameters.length;
+//    }
+//    return true;
+//});
 
 void
 _Py_EmscriptenTrampoline_Init(_PyRuntimeState *runtime)
 {
-    runtime->wasm_type_reflection_available = _PyEM_detect_type_reflection();
+//    runtime->wasm_type_reflection_available = _PyEM_detect_type_reflection();
 }
 
 /**

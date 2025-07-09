@@ -18063,5 +18063,9 @@ static struct PyModuleDef posixmodule = {
 PyMODINIT_FUNC
 INITFUNC(void)
 {
+#if defined(__EMSCRIPTEN__) || defined(__wasi__)
+    return 0;
+#else
     return PyModuleDef_Init(&posixmodule);
+#endif
 }

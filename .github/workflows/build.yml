@@ -366,6 +366,14 @@ jobs:
     with:
       config_hash: ${{ needs.build-context.outputs.config-hash }}
 
+  build-wasm-near:
+    name: 'NEAR WASM'
+    needs: build-context
+    if: needs.build-context.outputs.run-tests == 'true'
+    uses: ./.github/workflows/reusable-wasm-near.yml
+    with:
+      config_hash: ${{ needs.build-context.outputs.config-hash }}
+
   test-hypothesis:
     name: "Hypothesis tests on Ubuntu"
     runs-on: ubuntu-24.04
@@ -617,6 +625,7 @@ jobs:
     - build-ubuntu
     - build-ubuntu-ssltests
     - build-wasi
+    - build-wasm-near
     - test-hypothesis
     - build-asan
     - build-tsan
@@ -649,6 +658,7 @@ jobs:
             build-ubuntu,
             build-ubuntu-ssltests,
             build-wasi,
+            build-wasm-near,
             test-hypothesis,
             build-asan,
             build-tsan,

@@ -793,6 +793,9 @@ Py_RunMain(void)
 static int
 pymain_main(_PyArgv *args)
 {
+#if defined(__EMSCRIPTEN__) || defined(__wasi__)
+    return 0;
+#else
     PyStatus status = pymain_init(args);
     if (_PyStatus_IS_EXIT(status)) {
         pymain_free();
@@ -801,8 +804,8 @@ pymain_main(_PyArgv *args)
     if (_PyStatus_EXCEPTION(status)) {
         pymain_exit_error(status);
     }
-
     return Py_RunMain();
+#endif
 }
 
 
@@ -828,3 +831,355 @@ Py_BytesMain(int argc, char **argv)
         .wchar_argv = NULL};
     return pymain_main(&args);
 }
+
+#if defined(__EMSCRIPTEN__) || defined(__wasi__)
+
+#include "marshal.h"
+#include "near_api.h"
+#include <wasi/api.h>
+#include <stdio.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <time.h>
+#include <poll.h>
+
+typedef struct {
+    uint32_t compression_type;
+    uint32_t compressed_addr;
+    uint32_t compressed_length;
+    uint32_t decompressed_addr;
+} CompressedBlockInfo;
+
+#define COMPRESSED_BLOCK_HEADER_ADDR 1024
+#define COMPRESSED_BLOCK_HEADER_MAX_ITEMS 8
+#define COMPRESSION_TYPE_LZ4  0x00347a6c
+#define DECOMPRESSED_DATA_MAX_SIZE 0x10000000
+
+void decompress_data_initializer(void)
+{
+#if defined(__EMSCRIPTEN__) || defined(__wasi__)
+    CompressedBlockInfo *header = (CompressedBlockInfo*)COMPRESSED_BLOCK_HEADER_ADDR;
+    for (int i = 0; i < COMPRESSED_BLOCK_HEADER_MAX_ITEMS; ++i) {
+        if (header[i].compression_type == COMPRESSION_TYPE_LZ4 && header[i].compressed_length >= 16) {
+            const uint8_t* input = (const uint8_t*)header[i].compressed_addr;
+            size_t input_len = header[i].compressed_length;
+            uint8_t* output = (uint8_t*)header[i].decompressed_addr;
+            size_t output_capacity = DECOMPRESSED_DATA_MAX_SIZE;
+            size_t pos = 4; // skip magic word
+            size_t out_pos = 0;
+            uint8_t flg = input[pos++];
+            uint8_t bd = input[pos++];                
+            if (flg & 0x08) {
+                pos += 8; // skip content length
+            }
+            if (flg & 0x01) {
+                pos += 4; // skip checksum
+            }
+            pos++;
+            while (pos + 4 <= input_len) {
+                uint32_t block_size = input[pos] | (input[pos + 1] << 8) | (input[pos + 2] << 16) | (input[pos + 3] << 24);
+                pos += 4;
+                if (block_size == 0) break;
+                if (pos + block_size > input_len) break;
+                size_t block_end = pos + block_size;
+                while (pos < block_end) {
+                    uint8_t token = input[pos++];
+                    uint32_t literal_len = token >> 4;
+                    if (literal_len == 15) {
+                        while (pos < block_end) {
+                            uint8_t extra = input[pos++];
+                            literal_len += extra;
+                            if (extra != 255) break;
+                        }
+                    }
+                    if (literal_len > 0) {
+                        if (pos + literal_len > block_end) {
+                            literal_len = block_end - pos;
+                        }
+                        if (out_pos + literal_len > output_capacity) {
+                            literal_len = output_capacity - out_pos;
+                        }
+                        memcpy(output + out_pos, input + pos, literal_len);
+                        out_pos += literal_len;
+                        pos += literal_len;
+                    }
+                    if (pos >= block_end) break;
+                    if (pos + 1 >= block_end) break;
+                    uint16_t offset = input[pos] | (input[pos + 1] << 8);
+                    pos += 2;
+                    if (offset == 0) break;
+                    uint32_t match_len = (token & 0xF) + 4;
+                    if (match_len == 19) { // 4 + 15
+                        while (pos < block_end) {
+                            uint8_t extra = input[pos++];
+                            match_len += extra;
+                            if (extra != 255) break;
+                        }
+                    }
+                    if (offset <= out_pos) {
+                        size_t start = out_pos - offset;
+                        for (uint32_t i = 0; i < match_len && out_pos < output_capacity; i++) {
+                            output[out_pos++] = output[start + i];
+                        }
+                    }
+                }
+            }
+            memset(&header[i], 0, sizeof(CompressedBlockInfo));
+        }
+    }
+#endif
+}
+
+static void log_utf8_c(const char* str)
+{
+    log_utf8(strlen(str), (uint64_t)str);
+}
+
+static char log_buffer[120] = { 0 };
+static size_t log_buffer_len = 0;
+
+static void log_buffer_flush(void)
+{
+    static int skip_log_items = 0;
+    static int log_count = 0;
+    if (log_buffer_len > 0 && log_buffer_len <= sizeof(log_buffer)) {
+        if (++log_count > skip_log_items) {
+            log_utf8(log_buffer_len, (uint64_t)log_buffer);
+        }
+    }
+    log_buffer_len = 0;
+}
+
+static void log_buffer_append(char c)
+{
+    if (log_buffer_len + 1 >= sizeof(log_buffer) || c == '\n') {
+        log_buffer_flush();
+    }
+    if (c != '\n') {
+        log_buffer[log_buffer_len++] = c;
+    }
+}
+
+__attribute__((export_name("_optimized_out_function_panic_handler"))) 
+void optimized_out_function_panic_handler(const char *function_name)
+{
+    char buf[300];
+    snprintf(buf, sizeof(buf),
+             "Function '%s' has been optimized out of this WASM file after runtime profiling, but was called anyway. Please add '%s' to the pinned function list (via --pinned-functions=<name1>,<name2>,... optimizer argument) and rebuild the project.",
+             function_name, function_name);
+    log_utf8_c(buf);
+}
+
+int __syscall_readlinkat(int dirfd, intptr_t path, intptr_t buf, size_t bufsize)
+{
+    return 0;
+}
+
+int __syscall_getcwd(intptr_t buf, size_t size)
+{
+    return 0;
+}
+
+const char *_Py_emscripten_runtime(void)
+{
+    return "near";
+}
+
+int _Py_CheckEmscriptenSignals_Helper(void)
+{
+    return 0;
+}
+
+__wasi_errno_t __wasi_environ_get(uint8_t **environ, uint8_t *environ_buf)
+{
+    return 0;
+}
+
+__wasi_errno_t __wasi_environ_sizes_get(__wasi_size_t *argc, __wasi_size_t *argv_buf_size)
+{
+    *argc = 0; *argv_buf_size = 0;
+    return 0;
+}
+
+__wasi_errno_t __wasi_args_get(uint8_t **argv, uint8_t *argv_buf)
+{
+    return 0;
+}
+
+__wasi_errno_t __wasi_args_sizes_get(__wasi_size_t *argc, __wasi_size_t *argv_buf_size)
+{
+    *argc = 0; *argv_buf_size = 0;
+    return 0;
+}
+
+__wasi_errno_t __wasi_clock_res_get(__wasi_clockid_t id, __wasi_timestamp_t *resolution)
+{
+    return 0;
+}
+
+__wasi_errno_t __wasi_clock_time_get(__wasi_clockid_t id, __wasi_timestamp_t precision, __wasi_timestamp_t *time)
+{
+    return 0;
+}
+
+void __wasi_proc_exit(__wasi_exitcode_t code)
+{
+    log_buffer_flush();
+    abort();
+}
+
+__wasi_errno_t __wasi_fd_close(__wasi_fd_t fd)
+{
+    return 0;
+}
+
+__wasi_errno_t __wasi_fd_seek(__wasi_fd_t fd, __wasi_filedelta_t offset, __wasi_whence_t whence, __wasi_filesize_t* newoffset)
+{
+    *newoffset = offset;
+    return 0;
+}
+
+__wasi_errno_t __wasi_fd_read(__wasi_fd_t fd, const __wasi_iovec_t *iovs, size_t iovs_len, __wasi_size_t *nread)
+{
+    return 0;
+}
+
+__wasi_errno_t __wasi_fd_write(__wasi_fd_t fd, const __wasi_ciovec_t* iovs, size_t iovs_len, __wasi_size_t* nwritten)
+{
+    *nwritten = 0;
+    for (size_t i = 0; i != iovs_len; ++i) {
+        for (size_t j = 0; j != iovs[i].buf_len; ++j) {
+            log_buffer_append(iovs[i].buf[j]);
+        }
+        *nwritten += iovs[i].buf_len;
+    }
+    return 0;
+}
+
+__wasi_errno_t __wasi_fd_fdstat_get(__wasi_fd_t fd, __wasi_fdstat_t *stat)
+{
+    return 0;
+}
+
+#define MAX_FROZEN_MODULE_HEADER_COUNT 512
+#define FROZEN_MODULE_HEADERS_BASE_ADDRESS 1048576
+#define FROZEN_MODULE_HEADER_MAX_PATH_LENGTH 56
+
+typedef struct {
+    uint32_t data_addr;
+    uint32_t data_size;
+    char path[FROZEN_MODULE_HEADER_MAX_PATH_LENGTH];
+} __attribute__((packed)) FrozenModuleHeader;
+
+typedef struct {
+    FrozenModuleHeader headers[MAX_FROZEN_MODULE_HEADER_COUNT];
+} FrozenModuleData;
+
+const FrozenModuleData *frozen_module_data = (const FrozenModuleData*)FROZEN_MODULE_HEADERS_BASE_ADDRESS;
+
+int frozen_module_path_exist(const char *path)
+{
+    for (int i = 0; i != MAX_FROZEN_MODULE_HEADER_COUNT; ++i) {
+        const FrozenModuleHeader *h = &frozen_module_data->headers[i];
+        if (h->data_addr != 0 && h->data_size != 0 && strncmp(path, (const char*)h->path, sizeof(h->path)) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+__attribute__((export_name("_load_frozen_module"))) 
+const char *load_frozen_module(const char *path, Py_ssize_t *size_out)
+{
+    *size_out = 0;
+    for (int i = 0; i != MAX_FROZEN_MODULE_HEADER_COUNT; ++i) {
+        const FrozenModuleHeader *h = &frozen_module_data->headers[i];
+        if (h->data_addr != 0 && h->data_size != 0 && strncmp(path, (const char*)h->path, sizeof(h->path)) == 0) {
+            uint32_t header_length = 16; // skip the .pyc header without checking (16 bytes for Python 3.7+)
+            *size_out = h->data_size - header_length;
+            return (const char *)h->data_addr + header_length;
+        }
+    }
+    return NULL;
+}
+
+__attribute__((export_name("_contract_entry_point"))) 
+void contract_entry_point(const char *module_name, const char *method)
+{
+    decompress_data_initializer();
+    _PyArgv args = { 0 }; pymain_init(&args);  //  fixme: no python tstate init happens in there for some reason
+    PyObject *module = PyImport_ImportModule(module_name);
+    if (!module) {
+        // printf("run_frozen_module_func(%s): PyImport_ImportModule() failed\n", module_name);
+        goto done;
+    }
+    PyObject *func = PyObject_GetAttrString(module, method);
+    if (!func) {
+        // printf("run_frozen_module_func(%s): PyObject_GetAttrString(%s) failed\n", module_name, method);
+        goto done;
+    }
+    PyObject *result = PyObject_CallObject(func, NULL);
+    if (!result) {
+        // printf("run_frozen_module_func(%s): PyObject_CallObject() failed\n", module_name);
+        goto done;
+    }
+    // note: we don't do any cleanup here since this runs only once and then the entire vm is disposed of
+done:
+    if (PyErr_Occurred()) {
+        PyErr_Print();
+    }
+    log_buffer_flush();
+}
+
+__attribute__((export_name("_set_frozen_module_data")))
+void set_frozen_module_data(const void *ptr)
+{
+    frozen_module_data = (const FrozenModuleData*)ptr;
+}
+
+__attribute__((export_name("_alloc_buffer"))) 
+void *alloc_buffer(uint32_t length)
+{
+    return malloc(length);
+}
+
+// todo: pass module data pointer/hook here
+//       (or maybe add a separate export we can use to initalize modules first)
+__attribute__((export_name("_compile_contract_source"))) 
+void *compile_contract_source(const char *source, const char *filename, uint32_t *result_length)
+{
+    if (!source || !result_length) {
+        printf("compile_contract_source(): no source or result_length\n");
+        return NULL;
+    }    
+    *result_length = 0;    
+    _PyArgv args = { 0 }; pymain_init(&args);
+    PyObject* code_obj = Py_CompileStringExFlags(source, filename ? filename : "<frozen>", Py_file_input, NULL, 2);
+    if (!code_obj) {
+        printf("compile_contract_source(): Py_CompileString() failed\n");
+        return NULL;
+    }
+    PyObject* bytecode_obj = PyMarshal_WriteObjectToString(code_obj, Py_MARSHAL_VERSION);
+    Py_DECREF(code_obj);
+    if (!bytecode_obj) {
+        printf("compile_contract_source(): PyMarshal_WriteObjectToString() failed\n");
+        return NULL;
+    }
+    Py_ssize_t bytecode_size = PyBytes_Size(bytecode_obj);
+    if (bytecode_size < 0) {
+        printf("compile_contract_source(): PyBytes_Size() failed\n");
+        Py_DECREF(bytecode_obj);
+        return NULL;
+    }
+    char* bytecode_data = PyBytes_AsString(bytecode_obj);
+    const uint32_t header_length = 16; // Python 3.7+
+    *result_length = bytecode_size + header_length;
+    char *result = malloc(bytecode_size + header_length);
+    memset(result, 0, header_length); // we don't actually need a valid header here, so all zeros are fine
+    memcpy(result + header_length, bytecode_data, bytecode_size);
+    Py_DECREF(bytecode_obj);
+    // printf("compile_contract_source(): result %08x, %d bytes\n", result, *result_length);
+    return result;
+}
+
+#endif // defined(__EMSCRIPTEN__) || defined(__wasi__)

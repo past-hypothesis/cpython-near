@@ -2210,7 +2210,11 @@ static struct PyModuleDef timemodule = {
 PyMODINIT_FUNC
 PyInit_time(void)
 {
+#if defined(__EMSCRIPTEN__) || defined(__wasi__)
+    return 0;
+#else
     return PyModuleDef_Init(&timemodule);
+#endif
 }
 
 

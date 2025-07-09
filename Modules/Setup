@@ -109,7 +109,6 @@ TESTPATH=
 COREPYTHONPATH=$(DESTPATH)$(SITEPATH)$(TESTPATH)
 PYTHONPATH=$(COREPYTHONPATH)
 
-
 # ---
 # Built-in modules required to get a functioning interpreter are listed in
 # Modules/Setup.bootstrap.

@@ -739,5 +739,9 @@ struct PyModuleDef _PyIO_Module = {
 PyMODINIT_FUNC
 PyInit__io(void)
 {
+#if defined(__EMSCRIPTEN__) || defined(__wasi__)
+    return 0;
+#else
     return PyModuleDef_Init(&_PyIO_Module);
+#endif
 }

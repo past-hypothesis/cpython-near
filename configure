@@ -1864,7 +1864,7 @@ Optional Packages:
                           Enable any patches required for compiliance with app
                           stores. Optional PATCH-FILE specifies the custom
                           patch to apply.
-  --with-emscripten-target=[browser|node]
+  --with-emscripten-target=[browser|node|near]
                           Emscripten platform
   --with-suffix=SUFFIX    set executable suffix to SUFFIX (default is empty,
                           yes is mapped to '.exe')
@@ -7214,12 +7214,16 @@ then :
     ac_sys_emscripten_target=browser ;; #(
   node) :
     ac_sys_emscripten_target=node ;; #(
+  near) :
+    ac_sys_emscripten_target=near ;; #(
         browser-debug) :
     ac_sys_emscripten_target=browser-debug ;; #(
   node-debug) :
     ac_sys_emscripten_target=node-debug ;; #(
+  near-debug) :
+    ac_sys_emscripten_target=near-debug ;; #(
   *) :
-    as_fn_error $? "Invalid argument: --with-emscripten-target=browser|node" "$LINENO" 5
+    as_fn_error $? "Invalid argument: --with-emscripten-target=browser|node|near" "$LINENO" 5
      ;;
 esac
 
@@ -7841,6 +7845,8 @@ fi
 case $ac_sys_system/$ac_sys_emscripten_target in #(
   Emscripten/browser*) :
     LIBRARY_DEPS='$(PY3LIBRARY) $(WASM_STDLIB) python.html python.worker.js' ;; #(
+  Emscripten/near*) :
+    LIBRARY_DEPS='$(PY3LIBRARY) $(WASM_STDLIB) $(EXPORTSYMS)' ;; #(
   *) :
     LIBRARY_DEPS='$(PY3LIBRARY) $(EXPORTSYMS)'
  ;;
@@ -9547,16 +9553,13 @@ else $as_nop
   wasm_debug=no
 fi
 
-        as_fn_append LDFLAGS_NODIST " -sALLOW_MEMORY_GROWTH -sTOTAL_MEMORY=20971520"
 
         as_fn_append LDFLAGS_NODIST " -sWASM_BIGINT"
 
-        as_fn_append LDFLAGS_NODIST " -sFORCE_FILESYSTEM -lidbfs.js -lnodefs.js -lproxyfs.js -lworkerfs.js"
 
-    if test "x$enable_wasm_dynamic_linking" = xyes
+    if test "x$enable_wasm_dynamic_linking" = xno
 then :
 
-      as_fn_append LINKFORSHARED " -sMAIN_MODULE"
 
 fi
 
@@ -9590,6 +9593,18 @@ fi
         as_fn_append LDFLAGS_NODIST " -sALLOW_MEMORY_GROWTH -sNODERAWFS"
         as_fn_append LINKFORSHARED " -sEXIT_RUNTIME"
         WASM_LINKFORSHARED_DEBUG="-gseparate-dwarf --emit-symbol-map"
+       ;; #(
+  near*) :
+
+        OPT="-Oz -g2 -Wall"
+        if test "x$ac_sys_emscripten_target" = xnear-debug
+then :
+  wasm_debug=yes
+fi
+                as_fn_append LINKFORSHARED " -mno-bulk-memory-opt -mno-bulk-memory -mno-nontrapping-fptoint"
+        as_fn_append LINKFORSHARED " -sSTANDALONE_WASM=1 -sERROR_ON_UNDEFINED_SYMBOLS=0"
+        as_fn_append LINKFORSHARED " -sGLOBAL_BASE=8388608 -sALLOW_MEMORY_GROWTH=0 -sSTACK_SIZE=5MB"
+        WASM_STDLIB="\$(WASM_ASSETS_DIR)/local/lib/python\$(VERSION)/os.py"
 
      ;; #(
   *) :
@@ -9604,7 +9619,7 @@ then :
 
 else $as_nop
 
-      as_fn_append LINKFORSHARED " -O2 -g0"
+      as_fn_append LINKFORSHARED " -Oz -g2"
 
 fi
    ;; #(
@@ -9643,6 +9658,29 @@ then :
 fi
 
                 as_fn_append LDFLAGS_NODIST " -z stack-size=8388608 -Wl,--stack-first -Wl,--initial-memory=20971520"
+
+        as_fn_append LDFLAGS_NODIST " -Os -g1"
+    as_fn_append LDFLAGS_NODIST " -Wl,--no-merge-data-segments -mno-bulk-memory -mno-nontrapping-fptoint -fno-exceptions"
+    as_fn_append LDFLAGS_NODIST " -Wl,--no-entry -mexec-model=reactor"
+        as_fn_append LDFLAGS_NODIST " -Wl,--wrap=open -Wl,--wrap=openat -Wl,--wrap=close"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=read -Wl,--wrap=write -Wl,--wrap=pread -Wl,--wrap=pwrite"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=readv -Wl,--wrap=writev"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=fopen -Wl,--wrap=fclose -Wl,--wrap=fread -Wl,--wrap=fwrite"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=lseek -Wl,--wrap=__lseek -Wl,--wrap=fsync -Wl,--wrap=fdatasync"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=fstat -Wl,--wrap=stat -Wl,--wrap=lstat"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=mkdir -Wl,--wrap=rmdir -Wl,--wrap=unlink"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=rename -Wl,--wrap=link -Wl,--wrap=symlink -Wl,--wrap=readlink"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=chmod -Wl,--wrap=fchmod -Wl,--wrap=utimes"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=opendir -Wl,--wrap=readdir -Wl,--wrap=closedir"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=poll -Wl,--wrap=clock_gettime -Wl,--wrap=clock_getres"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=getentropy -Wl,--wrap=getenv -Wl,--wrap=setenv -Wl,--wrap=unsetenv"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=exit -Wl,--wrap=abort"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=socket -Wl,--wrap=bind -Wl,--wrap=listen -Wl,--wrap=accept"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=connect -Wl,--wrap=send -Wl,--wrap=recv"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=mmap -Wl,--wrap=munmap"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=fork -Wl,--wrap=execve -Wl,--wrap=waitpid -Wl,--wrap=kill"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=isatty -Wl,--wrap=__isatty -Wl,--wrap=dup -Wl,--wrap=dup2 -Wl,--wrap=pipe"
+    as_fn_append LDFLAGS_NODIST " -Wl,--wrap=fcntl -Wl,--wrap=flock -Wl,--wrap=_exit"
 
  ;; #(
   *) :
@@ -17455,7 +17493,7 @@ fi
 
 
 if test -z "$with_doc_strings"
-then with_doc_strings="yes"
+then with_doc_strings="no"
 fi
 if test "$with_doc_strings" != "no"
 then
@@ -17564,7 +17602,7 @@ if test ${with_mimalloc+y}
 then :
   withval=$with_mimalloc;
 else $as_nop
-  with_mimalloc="$ac_cv_header_stdatomic_h"
+  with_mimalloc="no"
 
 fi
 

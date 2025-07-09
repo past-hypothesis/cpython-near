@@ -3464,24 +3464,24 @@ static PyStructSequence_Desc emscripten_info_desc = {
     4
 };
 
-EM_JS(char *, _Py_emscripten_runtime, (void), {
-    var info;
-    if (typeof navigator == 'object') {
-        info = navigator.userAgent;
-    } else if (typeof process == 'object') {
-        info = "Node.js ".concat(process.version);
-    } else {
-        info = "UNKNOWN";
-    }
-    var len = lengthBytesUTF8(info) + 1;
-    var res = _malloc(len);
-    if (res) stringToUTF8(info, res, len);
-#if __wasm64__
-    return BigInt(res);
-#else
-    return res;
-#endif
-});
+//EM_JS(char *, _Py_emscripten_runtime, (void), {
+//    var info;
+//    if (typeof navigator == 'object') {
+//        info = navigator.userAgent;
+//    } else if (typeof process == 'object') {
+//        info = "Node.js ".concat(process.version);
+//    } else {
+//        info = "UNKNOWN";
+//    }
+//    var len = lengthBytesUTF8(info) + 1;
+//    var res = _malloc(len);
+//    if (res) stringToUTF8(info, res, len);
+//#if __wasm64__
+//    return BigInt(res);
+//#else
+//    return res;
+//#endif
+//});
 
 static PyObject *
 make_emscripten_info(void)
@@ -3503,7 +3503,7 @@ make_emscripten_info(void)
     }
     PyStructSequence_SET_ITEM(emscripten_info, pos++, version);
 
-    ua = _Py_emscripten_runtime();
+    ua = NULL; //_Py_emscripten_runtime();
     if (ua != NULL) {
         PyObject *oua = PyUnicode_DecodeUTF8(ua, strlen(ua), "strict");
         free(ua);

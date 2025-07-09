@@ -389,7 +389,9 @@ _Py_COMP_DIAG_IGNORE_DEPR_DECLS
    Note that we initialize "initial" relative to _PyRuntime,
    to ensure pre-initialized pointers point to the active
    runtime state (and not "initial"). */
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
 static const _PyRuntimeState initial = _PyRuntimeState_INIT(_PyRuntime, "");
+#endif
 _Py_COMP_DIAG_POP
 
 #define LOCKS_INIT(runtime) \
@@ -453,7 +455,9 @@ _PyRuntimeState_Init(_PyRuntimeState *runtime)
     if (runtime->_initialized) {
         // Py_Initialize() must be running again.
         // Reset to _PyRuntimeState_INIT.
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
         memcpy(runtime, &initial, sizeof(*runtime));
+#endif
         // Preserve the cookie from the original runtime.
         memcpy(runtime->debug_offsets.cookie, _Py_Debug_Cookie, 8);
         assert(!runtime->_initialized);
@@ -721,8 +725,9 @@ _PyInterpreterState_New(PyThreadState *tstate, PyInterpreterState **pinterp)
             goto error;
         }
         // Set to _PyInterpreterState_INIT.
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
         memcpy(interp, &initial._main_interpreter, sizeof(*interp));
-
+#endif
         if (id < 0) {
             /* overflow or Py_Initialize() not called yet! */
             status = _PyStatus_ERR("failed to get an interpreter ID");
@@ -1433,10 +1438,12 @@ allocate_chunk(int size_in_bytes, _PyStackChunk* previous)
 static void
 reset_threadstate(_PyThreadStateImpl *tstate)
 {
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     // Set to _PyThreadState_INIT directly?
     memcpy(tstate,
            &initial._main_interpreter._initial_thread,
            sizeof(*tstate));
+#endif
 }
 
 static _PyThreadStateImpl *

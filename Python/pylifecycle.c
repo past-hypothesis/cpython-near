@@ -1213,6 +1213,7 @@ init_interp_main(PyThreadState *tstate)
         return _PyStatus_ERR("failed to update the Python config");
     }
 
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     status = _PyImport_InitExternal(tstate);
     if (_PyStatus_EXCEPTION(status)) {
         return status;
@@ -1225,12 +1226,14 @@ init_interp_main(PyThreadState *tstate)
             return status;
         }
     }
+#endif
 
     status = _PyUnicode_InitEncodings(tstate);
     if (_PyStatus_EXCEPTION(status)) {
         return status;
     }
 
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     if (is_main_interp) {
         if (_PySignal_Init(config->install_signal_handlers) < 0) {
             return _PyStatus_ERR("can't initialize signals");
@@ -1268,6 +1271,7 @@ init_interp_main(PyThreadState *tstate)
     if (_PyStatus_EXCEPTION(status)) {
         return status;
     }
+#endif
 
 #ifdef __ANDROID__
     status = init_android_streams(tstate);
@@ -1291,6 +1295,7 @@ init_interp_main(PyThreadState *tstate)
         return status;
     }
 
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     if (is_main_interp) {
         /* Initialize warnings. */
         PyObject *warnoptions;
@@ -1381,6 +1386,7 @@ init_interp_main(PyThreadState *tstate)
     if (PyDict_Watch(0, interp->builtins) != 0) {
         return _PyStatus_ERR("failed to set builtin dict watcher");
     }
+#endif
 
     assert(!_PyErr_Occurred(tstate));
 

@@ -5399,7 +5399,11 @@ make_type(struct ast_state *state, const char *type, PyObject* base,
                     state->__match_args__, fnames,
                     state->__module__,
                     state->ast,
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi)
                     state->__doc__, doc);
+#else
+                    state->__doc__, "" /*doc*/);
+#endif
     Py_DECREF(fnames);
     return result;
 }

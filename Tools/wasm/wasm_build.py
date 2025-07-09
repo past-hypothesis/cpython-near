@@ -413,6 +413,8 @@ class EmscriptenTarget(enum.Enum):
     browser_debug = "browser-debug"
     node = "node"
     node_debug = "node-debug"
+    near = "near"
+    near_debug = "near-debug"
 
     @property
     def is_browser(self) -> bool:
@@ -723,6 +725,22 @@ _profiles = [
         host=Host.wasm32_emscripten,
         target=EmscriptenTarget.node_debug,
         dynamic_linking=True,
+    ),
+    BuildProfile(
+        "emscripten-near",
+        support_level=SupportLevel.supported,
+        host=Host.wasm32_emscripten,
+        target=EmscriptenTarget.near,
+        dynamic_linking=False,
+        pthreads=False,
+    ),
+    BuildProfile(
+        "emscripten-near-debug",
+        support_level=SupportLevel.supported,
+        host=Host.wasm32_emscripten,
+        target=EmscriptenTarget.near_debug,
+        dynamic_linking=False,
+        pthreads=False,
     ),
     BuildProfile(
         "emscripten-node-pthreads",

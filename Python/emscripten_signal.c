@@ -8,21 +8,21 @@
 #include <emscripten.h>
 #include "Python.h"
 
-EM_JS(int, _Py_CheckEmscriptenSignals_Helper, (void), {
-    if (!Module.Py_EmscriptenSignalBuffer) {
-        return 0;
-    }
-    try {
-        let result = Module.Py_EmscriptenSignalBuffer[0];
-        Module.Py_EmscriptenSignalBuffer[0] = 0;
-        return result;
-    } catch(e) {
-#if !defined(NDEBUG)
-        console.warn("Error occurred while trying to read signal buffer:", e);
-#endif
-        return 0;
-    }
-});
+//EM_JS(int, _Py_CheckEmscriptenSignals_Helper, (void), {
+//    if (!Module.Py_EmscriptenSignalBuffer) {
+//        return 0;
+//    }
+//    try {
+//        let result = Module.Py_EmscriptenSignalBuffer[0];
+//        Module.Py_EmscriptenSignalBuffer[0] = 0;
+//        return result;
+//    } catch(e) {
+//#if !defined(NDEBUG)
+//        console.warn("Error occurred while trying to read signal buffer:", e);
+//#endif
+//        return 0;
+//    }
+//});
 
 EMSCRIPTEN_KEEPALIVE int Py_EMSCRIPTEN_SIGNAL_HANDLING = 0;
 
@@ -32,7 +32,7 @@ _Py_CheckEmscriptenSignals(void)
     if (!Py_EMSCRIPTEN_SIGNAL_HANDLING) {
         return;
     }
-    int signal = _Py_CheckEmscriptenSignals_Helper();
+    int signal = 0; //_Py_CheckEmscriptenSignals_Helper();
     if (signal) {
         PyErr_SetInterruptEx(signal);
     }

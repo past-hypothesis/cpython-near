@@ -1264,19 +1264,21 @@ AS_CASE([$ac_sys_system/$ac_sys_release],
 
 AC_MSG_CHECKING([for --with-emscripten-target])
 AC_ARG_WITH([emscripten-target],
-  [AS_HELP_STRING([--with-emscripten-target=@<:@browser|node@:>@], [Emscripten platform])],
+  [AS_HELP_STRING([--with-emscripten-target=@<:@browser|node|near@:>@], [Emscripten platform])],
 [
 	AS_VAR_IF([ac_sys_system], [Emscripten], [
     AS_CASE([$with_emscripten_target],
       [browser], [ac_sys_emscripten_target=browser],
       [node], [ac_sys_emscripten_target=node],
+      [near], [ac_sys_emscripten_target=near],
 dnl Debug builds with source map / dwarf symbols. Py_DEBUG builds easily
 dnl run out of stack space. Detached sybmols and map prohibit some
 dnl optimizations and increase file size. Options are undocumented so we
 dnl are free to remove them in the future.
       [browser-debug], [ac_sys_emscripten_target=browser-debug],
       [node-debug], [ac_sys_emscripten_target=node-debug],
-      [AC_MSG_ERROR([Invalid argument: --with-emscripten-target=browser|node])]
+      [near-debug], [ac_sys_emscripten_target=near-debug],
+      [AC_MSG_ERROR([Invalid argument: --with-emscripten-target=browser|node|near])]
     )
   ], [
     AC_MSG_ERROR([--with-emscripten-target only applies to Emscripten])
@@ -1670,6 +1672,7 @@ fi
 # LIBRARY_DEPS, LINK_PYTHON_OBJS and LINK_PYTHON_DEPS variable
 AS_CASE([$ac_sys_system/$ac_sys_emscripten_target],
   [Emscripten/browser*], [LIBRARY_DEPS='$(PY3LIBRARY) $(WASM_STDLIB) python.html python.worker.js'],
+  [Emscripten/near*], [LIBRARY_DEPS='$(PY3LIBRARY) $(WASM_STDLIB) $(EXPORTSYMS)'],
   [LIBRARY_DEPS='$(PY3LIBRARY) $(EXPORTSYMS)']
 )
 LINK_PYTHON_DEPS='$(LIBRARY_DEPS)'
@@ -2411,16 +2414,16 @@ AS_CASE([$ac_sys_system],
     AS_VAR_IF([Py_DEBUG], [yes], [wasm_debug=yes], [wasm_debug=no])
 
     dnl Start with 20 MB and allow to grow
-    AS_VAR_APPEND([LDFLAGS_NODIST], [" -sALLOW_MEMORY_GROWTH -sTOTAL_MEMORY=20971520"])
+    dnl AS_VAR_APPEND([LDFLAGS_NODIST], [" -sALLOW_MEMORY_GROWTH -sTOTAL_MEMORY=20971520"])
 
     dnl map int64_t and uint64_t to JS bigint
     AS_VAR_APPEND([LDFLAGS_NODIST], [" -sWASM_BIGINT"])
 
     dnl Include file system support
-    AS_VAR_APPEND([LDFLAGS_NODIST], [" -sFORCE_FILESYSTEM -lidbfs.js -lnodefs.js -lproxyfs.js -lworkerfs.js"])
+    dnl AS_VAR_APPEND([LDFLAGS_NODIST], [" -sFORCE_FILESYSTEM -lidbfs.js -lnodefs.js -lproxyfs.js -lworkerfs.js"])
 
-    AS_VAR_IF([enable_wasm_dynamic_linking], [yes], [
-      AS_VAR_APPEND([LINKFORSHARED], [" -sMAIN_MODULE"])
+    AS_VAR_IF([enable_wasm_dynamic_linking], [no], [
+      dnl AS_VAR_APPEND([LINKFORSHARED], [" -sMAIN_MODULE"])
     ])
 
     AS_VAR_IF([enable_wasm_pthreads], [yes], [
@@ -2443,6 +2446,15 @@ AS_CASE([$ac_sys_system],
         AS_VAR_APPEND([LDFLAGS_NODIST], [" -sALLOW_MEMORY_GROWTH -sNODERAWFS"])
         AS_VAR_APPEND([LINKFORSHARED], [" -sEXIT_RUNTIME"])
         WASM_LINKFORSHARED_DEBUG="-gseparate-dwarf --emit-symbol-map"
+      ],
+      [near*], [
+        OPT="-Oz -g2 -Wall"
+        AS_VAR_IF([ac_sys_emscripten_target], [near-debug], [wasm_debug=yes])
+        dnl WASM_LINKFORSHARED_DEBUG="-gseparate-dwarf --emit-symbol-map"
+        AS_VAR_APPEND([LINKFORSHARED], [" -mno-bulk-memory-opt -mno-bulk-memory -mno-nontrapping-fptoint"])
+        AS_VAR_APPEND([LINKFORSHARED], [" -sSTANDALONE_WASM=1 -sERROR_ON_UNDEFINED_SYMBOLS=0"])
+        AS_VAR_APPEND([LINKFORSHARED], [" -sGLOBAL_BASE=8388608 -sALLOW_MEMORY_GROWTH=0 -sSTACK_SIZE=5MB"])
+        WASM_STDLIB="\$(WASM_ASSETS_DIR)/local/lib/python\$(VERSION)/os.py"
       ]
     )
 
@@ -2450,7 +2462,7 @@ AS_CASE([$ac_sys_system],
       AS_VAR_APPEND([LDFLAGS_NODIST], [" -sASSERTIONS"])
       AS_VAR_APPEND([LINKFORSHARED], [" $WASM_LINKFORSHARED_DEBUG"])
     ], [
-      AS_VAR_APPEND([LINKFORSHARED], [" -O2 -g0"])
+      AS_VAR_APPEND([LINKFORSHARED], [" -Oz -g2"])
     ])
   ],
   [WASI], [
@@ -2481,6 +2493,31 @@ AS_CASE([$ac_sys_system],
     dnl and move the stack first.
     dnl https://github.com/WebAssembly/wasi-libc/issues/233
     AS_VAR_APPEND([LDFLAGS_NODIST], [" -z stack-size=8388608 -Wl,--stack-first -Wl,--initial-memory=20971520"])
+
+    dnl NEAR VM port
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Os -g1"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--no-merge-data-segments -mno-bulk-memory -mno-nontrapping-fptoint -fno-exceptions"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--no-entry -mexec-model=reactor"])
+    dnl AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--no-entry -Wl,--allow-undefined-file=wasi_undefined.txt"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=open -Wl,--wrap=openat -Wl,--wrap=close"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=read -Wl,--wrap=write -Wl,--wrap=pread -Wl,--wrap=pwrite"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=readv -Wl,--wrap=writev"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=fopen -Wl,--wrap=fclose -Wl,--wrap=fread -Wl,--wrap=fwrite"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=lseek -Wl,--wrap=__lseek -Wl,--wrap=fsync -Wl,--wrap=fdatasync"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=fstat -Wl,--wrap=stat -Wl,--wrap=lstat"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=mkdir -Wl,--wrap=rmdir -Wl,--wrap=unlink"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=rename -Wl,--wrap=link -Wl,--wrap=symlink -Wl,--wrap=readlink"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=chmod -Wl,--wrap=fchmod -Wl,--wrap=utimes"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=opendir -Wl,--wrap=readdir -Wl,--wrap=closedir"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=poll -Wl,--wrap=clock_gettime -Wl,--wrap=clock_getres"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=getentropy -Wl,--wrap=getenv -Wl,--wrap=setenv -Wl,--wrap=unsetenv"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=exit -Wl,--wrap=abort"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=socket -Wl,--wrap=bind -Wl,--wrap=listen -Wl,--wrap=accept"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=connect -Wl,--wrap=send -Wl,--wrap=recv"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=mmap -Wl,--wrap=munmap"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=fork -Wl,--wrap=execve -Wl,--wrap=waitpid -Wl,--wrap=kill"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=isatty -Wl,--wrap=__isatty -Wl,--wrap=dup -Wl,--wrap=dup2 -Wl,--wrap=pipe"])
+    AS_VAR_APPEND([LDFLAGS_NODIST], [" -Wl,--wrap=fcntl -Wl,--wrap=flock -Wl,--wrap=_exit"])
   ]
 )
 
@@ -4832,7 +4869,7 @@ AC_ARG_WITH(
   [AS_HELP_STRING([--with-doc-strings], [enable documentation strings (default is yes)])])
 
 if test -z "$with_doc_strings"
-then with_doc_strings="yes"
+then with_doc_strings="no"
 fi
 if test "$with_doc_strings" != "no"
 then
@@ -4889,7 +4926,7 @@ AC_ARG_WITH([mimalloc],
   [AS_HELP_STRING([--with-mimalloc],
                  [build with mimalloc memory allocator (default is yes if C11 stdatomic.h is available.)])],
   [],
-  [with_mimalloc="$ac_cv_header_stdatomic_h"]
+  [with_mimalloc="no"]
 )
 
 if test "$with_mimalloc" != no; then

@@ -3069,10 +3069,12 @@ _PyConfig_Read(PyConfig *config, int compute_path_config)
         config->user_site_directory = 0;
     }
 
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     status = config_read_cmdline(config);
     if (_PyStatus_EXCEPTION(status)) {
         goto done;
     }
+#endif
 
     /* Handle early PySys_AddXOption() calls */
     status = _PySys_ReadPreinitXOptions(config);

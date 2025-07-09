@@ -124,7 +124,7 @@ def get_sysconfigdata(args: argparse.Namespace) -> pathlib.Path:
 def create_stdlib_zip(
     args: argparse.Namespace,
     *,
-    optimize: int = 0,
+    optimize: int = 2,
 ) -> None:
     def filterfunc(filename: str) -> bool:
         pathname = pathlib.Path(filename).resolve()
@@ -204,13 +204,13 @@ def main() -> None:
     args.srcdir = SRCDIR
     args.srcdir_lib = SRCDIR_LIB
     args.wasm_root = args.buildroot / relative_prefix
-    args.wasm_stdlib_zip = args.wasm_root / WASM_STDLIB_ZIP
+    args.wasm_stdlib_zip = args.buildroot / "python-stdlib.zip"
     args.wasm_stdlib = args.wasm_root / WASM_STDLIB
     args.wasm_dynload = args.wasm_root / WASM_DYNLOAD
 
     # bpo-17004: zipimport supports only zlib compression.
     # Emscripten ZIP_STORED + -sLZ4=1 linker flags results in larger file.
-    args.compression = zipfile.ZIP_DEFLATED
+    args.compression = zipfile.ZIP_STORED
     args.compresslevel = 9
 
     args.builddir = get_builddir(args)

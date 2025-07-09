@@ -527,6 +527,10 @@ def regen_frozen(modules):
             if line:
                 lines[i] = indent + line
 
+    for lines in (bootstraplines, stdliblines, testlines):
+        lines.insert(0, "#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)")
+        lines.append("#endif")
+
     print(f'# Updating {os.path.relpath(FROZEN_FILE)}')
     with updating_file_with_tmpfile(FROZEN_FILE) as (infile, outfile):
         lines = infile.readlines()

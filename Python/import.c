@@ -2275,6 +2275,14 @@ is_builtin(PyObject *name)
     return 0;
 }
 
+const char *notify_builtin_module_load_dummy[100] = { 0 };
+
+__attribute__((export_name("_notify_builtin_module_load")))
+void notify_builtin_module_load(const char *name)
+{
+    strncpy(notify_builtin_module_load_dummy, name, sizeof(notify_builtin_module_load_dummy));
+}
+
 static PyObject*
 create_builtin(PyThreadState *tstate, PyObject *name, PyObject *spec)
 {
@@ -2319,6 +2327,7 @@ create_builtin(PyThreadState *tstate, PyObject *name, PyObject *spec)
         goto finally;
     }
 
+    notify_builtin_module_load(found->name);
     PyModInitFunction p0 = (PyModInitFunction)found->initfunc;
     if (p0 == NULL) {
         /* Cannot re-init internal module ("sys" or "builtins") */
@@ -2941,6 +2950,9 @@ struct frozen_info {
     const char *origname;
 };
 
+const char *load_frozen_module(const char *path, Py_ssize_t *size_out);
+int frozen_module_path_exist(const char *path);
+
 static frozen_status
 find_frozen(PyObject *nameobj, struct frozen_info *info)
 {
@@ -2960,7 +2972,48 @@ find_frozen(PyObject *nameobj, struct frozen_info *info)
         PyErr_Clear();
         return FROZEN_BAD_NAME;
     }
+#if defined(__EMSCRIPTEN__) || defined(__wasi__)
+    if (strcmp(name, "_frozen_importlib") == 0) {
+        name = "importlib/_bootstrap";
+    }
 
+    char modified_name[300] = { 0 };
+    strncpy(modified_name, name, sizeof(modified_name));
+    for (int i = 0; i != sizeof(modified_name); ++i) {
+        if (modified_name[i] == '.') {
+            modified_name[i] = '/';
+        }
+    }
+
+    bool is_package = false;
+    char module_path[300] = { 0 };
+    snprintf(module_path, sizeof(module_path), "%s.pyc", modified_name);
+    if (!frozen_module_path_exist(module_path)) {
+        snprintf(module_path, sizeof(module_path), "%s/__init__.pyc", modified_name);
+        is_package = true;
+    }
+
+    Py_ssize_t code_size = 0;
+    const char *code = load_frozen_module(module_path, &code_size);
+    if (code == NULL) {
+        // printf("find_frozen(): path %s not found\n", module_path);
+        return FROZEN_NOT_FOUND;
+    }
+
+    if (strcmp(name, "types") == 0) {
+        is_package = true;
+    }
+
+    if (info != NULL) {
+        info->nameobj = nameobj;  // borrowed
+        info->data = code;
+        info->size = code_size;
+        info->is_package = is_package;
+        info->origname = name;
+        info->is_alias = resolve_module_alias(name, _PyImport_FrozenAliases,
+                                              &info->origname);
+    }
+#else // defined(__EMSCRIPTEN__) || defined(__wasi__)
     const struct _frozen *p = look_up_frozen(name);
     if (p == NULL) {
         return FROZEN_NOT_FOUND;
@@ -2987,6 +3040,7 @@ find_frozen(PyObject *nameobj, struct frozen_info *info)
         /* Does not contain executable code. */
         return FROZEN_INVALID;
     }
+#endif // defined(__EMSCRIPTEN__) || defined(__wasi__)
     return FROZEN_OKAY;
 }
 

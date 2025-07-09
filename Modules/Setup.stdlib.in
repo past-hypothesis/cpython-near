@@ -20,6 +20,70 @@
 # See Modules/Setup and Modules/makesetup
 #
 
+# emscripten-near specific modules
+near nearmodule.c
+
+*disabled*
+
+_asyncio
+_blake2
+_bz2
+_codecs_cn
+_codecs_hk
+_codecs_iso2022
+_codecs_jp
+_codecs_kr
+_codecs_tw
+_csv
+_ctypes
+_ctypes_test
+_curses
+_datetime
+_dbm
+_elementtree
+_gdbm
+_hashlib
+_interpchannels
+_interpqueues
+_interpreters
+_locale
+_lsprof
+_lzma
+_multibytecodec
+_opcode
+_pickle
+_scproxy
+_socket
+_sqlite3
+_ssl
+_stat
+_suggestions
+_symtable
+_testbuffer
+_testcapi
+_testclinic
+_testclinic_limited
+_testexternalinspection
+_testimportmultiple
+_testinternalcapi
+_testlimitedcapi
+_testmultiphase
+_testsinglephase
+_tkinter
+_tracemalloc
+_xxtestfuzz
+_zoneinfo
+mmap
+pyexpat
+readline
+select
+unicodedata
+xx
+xxlimited
+xxlimited_35
+xxsubtype
+zlib
+
 
 # Build modules statically or as shared extensions
 # *shared* / *static*
@@ -154,7 +218,6 @@
 
 # _scproxy needs SystemConfiguration and CoreFoundation framework
 @MODULE__SCPROXY_TRUE@_scproxy _scproxy.c
-
 
 ############################################################################
 # Test modules

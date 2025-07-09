@@ -863,6 +863,7 @@ _Py_Get_Getpath_CodeObject(void)
 PyStatus
 _PyConfig_InitPathConfig(PyConfig *config, int compute_path_config)
 {
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     PyStatus status = _PyPathConfig_ReadGlobal(config);
 
     if (_PyStatus_EXCEPTION(status) || !compute_path_config) {
@@ -984,6 +985,7 @@ _PyConfig_InitPathConfig(PyConfig *config, int compute_path_config)
     }
 
     Py_DECREF(dict);
+#endif
 
     return _PyStatus_OK();
 }

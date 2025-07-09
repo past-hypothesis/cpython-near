@@ -67,12 +67,15 @@
 /* End includes */
 
 static const struct _frozen bootstrap_modules[] = {
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     {"_frozen_importlib", _Py_M__importlib__bootstrap, (int)sizeof(_Py_M__importlib__bootstrap), false},
     {"_frozen_importlib_external", _Py_M__importlib__bootstrap_external, (int)sizeof(_Py_M__importlib__bootstrap_external), false},
     {"zipimport", _Py_M__zipimport, (int)sizeof(_Py_M__zipimport), false},
+#endif
     {0, 0, 0} /* bootstrap sentinel */
 };
 static const struct _frozen stdlib_modules[] = {
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     /* stdlib - startup, without site (python -S) */
     {"abc", _Py_M__abc, (int)sizeof(_Py_M__abc), false},
     {"codecs", _Py_M__codecs, (int)sizeof(_Py_M__codecs), false},
@@ -93,9 +96,11 @@ static const struct _frozen stdlib_modules[] = {
     {"importlib.util", _Py_M__importlib_util, (int)sizeof(_Py_M__importlib_util), false},
     {"importlib.machinery", _Py_M__importlib_machinery, (int)sizeof(_Py_M__importlib_machinery), false},
     {"runpy", _Py_M__runpy, (int)sizeof(_Py_M__runpy), false},
+#endif
     {0, 0, 0} /* stdlib sentinel */
 };
 static const struct _frozen test_modules[] = {
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     {"__hello__", _Py_M____hello__, (int)sizeof(_Py_M____hello__), false},
     {"__hello_alias__", _Py_M____hello__, (int)sizeof(_Py_M____hello__), false},
     {"__phello_alias__", _Py_M____hello__, (int)sizeof(_Py_M____hello__), true},
@@ -107,6 +112,7 @@ static const struct _frozen test_modules[] = {
     {"__phello__.ham.eggs", _Py_M____phello___ham_eggs, (int)sizeof(_Py_M____phello___ham_eggs), false},
     {"__phello__.spam", _Py_M____phello___spam, (int)sizeof(_Py_M____phello___spam), false},
     {"__hello_only__", _Py_M__frozen_only, (int)sizeof(_Py_M__frozen_only), false},
+#endif
     {0, 0, 0} /* test sentinel */
 };
 const struct _frozen *_PyImport_FrozenBootstrap = bootstrap_modules;
