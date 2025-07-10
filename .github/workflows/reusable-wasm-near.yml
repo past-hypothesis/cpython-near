@@ -60,6 +60,14 @@ jobs:
       run: echo "IMAGE_OS_VERSION=${ImageOS}-${ImageVersion}" >> "$GITHUB_ENV"
     - name: "Build"
       run: python3 Tools/wasm/wasm_build.py emscripten-near
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts-${{ github.sha }}
+        path: |
+          ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/python.wasm
+          ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/python-stdlib.zip
+          Tools/wasm/wasm_optimizer.py
     - name: "Upload python.wasm"
       if: github.event_name == 'release'
       uses: actions/upload-release-asset@v1
