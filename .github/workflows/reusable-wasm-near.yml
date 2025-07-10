@@ -58,10 +58,8 @@ jobs:
         python-version: '3.x'
     - name: "Runner image version"
       run: echo "IMAGE_OS_VERSION=${ImageOS}-${ImageVersion}" >> "$GITHUB_ENV"
-    - name: "Configure"
-      run: python3 Tools/wasm/wasm_build.py emscripten-near configure
-    - name: "Make"
-      run: python3 Tools/wasm/wasm_build.py emscripten-near build
+    - name: "Build"
+      run: python3 Tools/wasm/wasm_build.py emscripten-near
     - name: "Upload python.wasm"
       if: github.event_name == 'release'
       uses: actions/upload-release-asset@v1
