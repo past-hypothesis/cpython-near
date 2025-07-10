@@ -72,23 +72,19 @@ jobs:
         name: python-wasm-near-${{ github.sha }}
         path: |
           artifacts/
-    - name: "Upload python.wasm"
+    - name: Create release zip
+      if: github.event_name == 'release'
+      run: |
+        cd artifacts
+        zip -r ../python-wasm-near-${{ github.event.release.tag_name }}.zip .
+        cd ..          
+    - name: "Upload release zip"
       if: github.event_name == 'release'
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/python.wasm
-        asset_name: python.wasm
-        asset_content_type: application/wasm
-    - name: "Upload python-stdlib.zip"
-      if: github.event_name == 'release'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/python-stdlib.zip
-        asset_name: python-stdlib.zip
+        asset_path: python-wasm-near-${{ github.event.release.tag_name }}.zip
+        asset_name: python-wasm-near-${{ github.event.release.tag_name }}.zip
         asset_content_type: application/zip
