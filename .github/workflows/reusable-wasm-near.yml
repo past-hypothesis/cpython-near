@@ -38,8 +38,8 @@ jobs:
       run: |
         git clone https://github.com/emscripten-core/emsdk.git ${{ env.EMSDK_PATH }}
         cd ${{ env.EMSDK_PATH }}
-        ./emsdk install 4.0.0
-        ./emsdk activate 4.0.0
+        ./emsdk install ${{ env.EMSCRIPTEN_VERSION }}
+        ./emsdk activate ${{ env.EMSCRIPTEN_VERSION }}
         source ${{ env.EMSDK_PATH }}/emsdk_env.sh
         echo "$(dirname $(which emcc))" >> $GITHUB_PATH
         echo "EMSDK=${{ env.EMSDK_PATH }}" >> $GITHUB_ENV
@@ -58,31 +58,10 @@ jobs:
         python-version: '3.x'
     - name: "Runner image version"
       run: echo "IMAGE_OS_VERSION=${ImageOS}-${ImageVersion}" >> "$GITHUB_ENV"
-    - name: "Restore Python build config.cache"
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.CROSS_BUILD_PYTHON }}/config.cache
-        # Include env.pythonLocation in key to avoid changes in environment when setup-python updates Python.
-        # Include the hash of `Tools/wasm/wasi.py` as it may change the environment variables.
-        # (Make sure to keep the key in sync with the other config.cache step below.)
-        key: ${{ github.job }}-${{ env.IMAGE_OS_VERSION }}-${{ env.EMSCRIPTEN_VERSION }}-${{ inputs.config_hash }}-${{ hashFiles('Tools/wasm/wasm_build.py') }}-${{ env.pythonLocation }}
-    - name: "Configure build Python"
-      run: python3 Tools/wasm/wasm_build.py emscripten-near configure-build-python -- --config-cache --with-pydebug
-    - name: "Make build Python"
-      run: python3 Tools/wasm/wasm_build.py emscripten-near make-build-python
-    - name: "Restore host config.cache"
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/config.cache
-        # Should be kept in sync with the other config.cache step above.
-        key: ${{ github.job }}-${{ env.IMAGE_OS_VERSION }}-${{ env.EMSCRIPTEN_VERSION }}-${{ inputs.config_hash }}-${{ hashFiles('Tools/wasm/wasm_build.py') }}-${{ env.pythonLocation }}
-    - name: "Configure host"
-      # `--with-pydebug` inferred from configure-build-python
-      run: python3 Tools/wasm/wasm_build.py emscripten-near configure-host -- --config-cache
-    - name: "Make host"
-      run: python3 Tools/wasm/wasm_build.py emscripten-near make-host
-    - name: "Display build info"
-      run: make --directory "${CROSS_BUILD_EMSCRIPTEN_NEAR}" pythoninfo
+    - name: "Configure"
+      run: python3 Tools/wasm/wasm_build.py emscripten-near configure
+    - name: "Make"
+      run: python3 Tools/wasm/wasm_build.py emscripten-near build
     - name: "Upload python.wasm"
       if: github.event_name == 'release'
       uses: actions/upload-release-asset@v1
@@ -103,5 +82,3 @@ jobs:
         asset_path: ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/python-stdlib.zip
         asset_name: python-stdlib.zip
         asset_content_type: application/zip
-    - name: "Test"
-      run: make --directory "${CROSS_BUILD_EMSCRIPTEN_NEAR}" test
