@@ -61,6 +61,7 @@ jobs:
     - name: "Build"
       run: python3 Tools/wasm/wasm_build.py emscripten-near
     - name: "Upload python.wasm"
+      if: github.event_name == 'release'
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -70,6 +71,7 @@ jobs:
         asset_name: python.wasm
         asset_content_type: application/wasm
     - name: "Upload python-stdlib.zip"
+      if: github.event_name == 'release'
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
