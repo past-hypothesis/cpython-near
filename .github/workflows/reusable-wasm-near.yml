@@ -65,7 +65,6 @@ jobs:
         mkdir -p artifacts
         cp ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/python.wasm artifacts/
         cp ${{ env.CROSS_BUILD_EMSCRIPTEN_NEAR }}/python-stdlib.zip artifacts/
-        cp Tools/wasm/wasm_optimizer.py artifacts/
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
