@@ -965,7 +965,7 @@ void optimized_out_function_panic_handler(const char *function_name)
 {
     char buf[300];
     snprintf(buf, sizeof(buf),
-             "Function '%s' has been optimized out of this WASM file after runtime profiling, but was called anyway. Please add '%s' to the pinned function list (via --pinned-functions=<name1>,<name2>,... optimizer argument) and rebuild the project.",
+             "Function '%s' has been optimized out of this WASM file via runtime profiling, but was called anyway. Please add '%s' to the pinned function list (via --pinned-functions=<name1>,<name2>,... nearc cmdline argument or [tool.nearc] pinned-functions=[\"name1\", \"name2\", ...] pyproject.toml section) and rebuild the project.",
              function_name, function_name);
     log_utf8_c(buf);
 }
