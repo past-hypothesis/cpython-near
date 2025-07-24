@@ -1,6 +1,5 @@
 """Utilities for with-statement contexts.  See PEP 343."""
 import abc
-import os
 import sys
 import _collections_abc
 from collections import deque
@@ -807,8 +806,7 @@ class chdir(AbstractContextManager):
         self._old_cwd = []
 
     def __enter__(self):
-        self._old_cwd.append(os.getcwd())
-        os.chdir(self.path)
+        pass
 
     def __exit__(self, *excinfo):
-        os.chdir(self._old_cwd.pop())
+        pass

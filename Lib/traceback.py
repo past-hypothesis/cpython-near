@@ -2,13 +2,9 @@
 
 import collections.abc
 import itertools
-import linecache
 import sys
-import textwrap
 import warnings
 from contextlib import suppress
-import _colorize
-from _colorize import ANSIColors
 
 __all__ = ['extract_stack', 'extract_tb', 'format_exception',
            'format_exception_only', 'format_list', 'format_stack',
@@ -135,8 +131,7 @@ BUILTIN_EXCEPTION_LIMIT = object()
 
 def _print_exception_bltin(exc, /):
     file = sys.stderr if sys.stderr is not None else sys.__stderr__
-    colorize = _colorize.can_colorize(file=file)
-    return print_exception(exc, limit=BUILTIN_EXCEPTION_LIMIT, file=file, colorize=colorize)
+    return print_exception(exc, limit=BUILTIN_EXCEPTION_LIMIT, file=file, colorize=False)
 
 
 def format_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
@@ -182,16 +177,10 @@ def format_exception_only(exc, /, value=_sentinel, *, show_group=False, **kwargs
 def _format_final_exc_line(etype, value, *, insert_final_newline=True, colorize=False):
     valuestr = _safe_string(value, 'exception')
     end_char = "\n" if insert_final_newline else ""
-    if colorize:
-        if value is None or not valuestr:
-            line = f"{ANSIColors.BOLD_MAGENTA}{etype}{ANSIColors.RESET}{end_char}"
-        else:
-            line = f"{ANSIColors.BOLD_MAGENTA}{etype}{ANSIColors.RESET}: {ANSIColors.MAGENTA}{valuestr}{ANSIColors.RESET}{end_char}"
+    if value is None or not valuestr:
+        line = f"{etype}{end_char}"
     else:
-        if value is None or not valuestr:
-            line = f"{etype}{end_char}"
-        else:
-            line = f"{etype}: {valuestr}{end_char}"
+        line = f"{etype}: {valuestr}{end_char}"
     return line
 
 
@@ -346,12 +335,6 @@ class FrameSummary:
             and self.end_lineno is not None
         ):
             lines = []
-            for lineno in range(self.lineno, self.end_lineno + 1):
-                # treat errors (empty string) and empty lines (newline) as the same
-                line = linecache.getline(self.filename, lineno).rstrip()
-                if not line and self._code is not None and self.filename.startswith("<"):
-                    line = linecache._getline_from_code(self._code, lineno).rstrip()
-                lines.append(line)
             self._lines = "\n".join(lines) + "\n"
 
     @property
@@ -365,7 +348,7 @@ class FrameSummary:
         # Returns _original_lines, but dedented
         self._set_lines()
         if self._lines_dedented is None and self._lines is not None:
-            self._lines_dedented = textwrap.dedent(self._lines)
+            self._lines_dedented = self._lines
         return self._lines_dedented
 
     @property
@@ -478,7 +461,6 @@ class StackSummary(list):
             filename = co.co_filename
             name = co.co_name
             fnames.add(filename)
-            linecache.lazycache(filename, f.f_globals)
             # Must defer line lookups until we have called checkcache.
             if capture_locals:
                 f_locals = f.f_locals
@@ -491,8 +473,6 @@ class StackSummary(list):
                     _code=f.f_code,
                 )
             )
-        for filename in fnames:
-            linecache.checkcache(filename)
 
         # If immediate lookup was desired, trigger lookups now.
         if lookup_lines:
@@ -530,29 +510,15 @@ class StackSummary(list):
         filename = frame_summary.filename
         if frame_summary.filename.startswith("<stdin>-"):
             filename = "<stdin>"
-        if colorize:
-            row.append('  File {}"{}"{}, line {}{}{}, in {}{}{}\n'.format(
-                    ANSIColors.MAGENTA,
-                    filename,
-                    ANSIColors.RESET,
-                    ANSIColors.MAGENTA,
-                    frame_summary.lineno,
-                    ANSIColors.RESET,
-                    ANSIColors.MAGENTA,
-                    frame_summary.name,
-                    ANSIColors.RESET,
-                    )
-            )
-        else:
-            row.append('  File "{}", line {}, in {}\n'.format(
-                filename, frame_summary.lineno, frame_summary.name))
+        row.append('  File "{}", line {}, in {}\n'.format(
+            filename, frame_summary.lineno, frame_summary.name))
         if frame_summary._dedented_lines and frame_summary._dedented_lines.strip():
             if (
                 frame_summary.colno is None or
                 frame_summary.end_colno is None
             ):
                 # only output first line if column information is missing
-                row.append(textwrap.indent(frame_summary.line, '    ') + "\n")
+                row.append(frame_summary.line + "\n")
             else:
                 # get first and last line
                 all_lines_original = frame_summary._original_lines.splitlines()
@@ -654,31 +620,7 @@ class StackSummary(list):
                             carets.append(secondary_char)
                         else:
                             carets.append(primary_char)
-                    if colorize:
-                        # Replace the previous line with a red version of it only in the parts covered
-                        # by the carets.
-                        line = result[-1]
-                        colorized_line_parts = []
-                        colorized_carets_parts = []
-
-                        for color, group in itertools.groupby(itertools.zip_longest(line, carets, fillvalue=""), key=lambda x: x[1]):
-                            caret_group = list(group)
-                            if color == "^":
-                                colorized_line_parts.append(ANSIColors.BOLD_RED + "".join(char for char, _ in caret_group) + ANSIColors.RESET)
-                                colorized_carets_parts.append(ANSIColors.BOLD_RED + "".join(caret for _, caret in caret_group) + ANSIColors.RESET)
-                            elif color == "~":
-                                colorized_line_parts.append(ANSIColors.RED + "".join(char for char, _ in caret_group) + ANSIColors.RESET)
-                                colorized_carets_parts.append(ANSIColors.RED + "".join(caret for _, caret in caret_group) + ANSIColors.RESET)
-                            else:
-                                colorized_line_parts.append("".join(char for char, _ in caret_group))
-                                colorized_carets_parts.append("".join(caret for _, caret in caret_group))
-
-                        colorized_line = "".join(colorized_line_parts)
-                        colorized_carets = "".join(colorized_carets_parts)
-                        result[-1] = colorized_line
-                        result.append(colorized_carets + "\n")
-                    else:
-                        result.append("".join(carets) + "\n")
+                    result.append("".join(carets) + "\n")
 
                 # display significant lines
                 sig_lines_list = sorted(significant_lines)
@@ -694,7 +636,7 @@ class StackSummary(list):
                     output_line(lineno)
 
                 row.append(
-                    textwrap.indent(textwrap.dedent("".join(result)), '    ', lambda line: True)
+                    "".join(result)
                 )
         if frame_summary.locals:
             for name, value in sorted(frame_summary.locals.items()):
@@ -988,10 +930,10 @@ class _ExceptionPrintContext:
             indent_str += margin_char + ' '
 
         if isinstance(text_gen, str):
-            yield textwrap.indent(text_gen, indent_str, lambda line: True)
+            yield text_gen
         else:
             for text in text_gen:
-                yield textwrap.indent(text, indent_str, lambda line: True)
+                yield text
 
 
 class TracebackException:
@@ -1275,18 +1217,8 @@ class TracebackException:
         colorize = kwargs.get("colorize", False)
         filename_suffix = ''
         if self.lineno is not None:
-            if colorize:
-                yield '  File {}"{}"{}, line {}{}{}\n'.format(
-                    ANSIColors.MAGENTA,
-                    self.filename or "<string>",
-                    ANSIColors.RESET,
-                    ANSIColors.MAGENTA,
-                    self.lineno,
-                    ANSIColors.RESET,
-                    )
-            else:
-                yield '  File "{}", line {}\n'.format(
-                    self.filename or "<string>", self.lineno)
+            yield '  File "{}", line {}\n'.format(
+                self.filename or "<string>", self.lineno)
         elif self.filename is not None:
             filename_suffix = ' ({})'.format(self.filename)
 
@@ -1329,15 +1261,6 @@ class TracebackException:
                     # non-space whitespace (likes tabs) must be kept for alignment
                     caretspace = ((c if c.isspace() else ' ') for c in ltext[:colno])
                     start_color = end_color = ""
-                    if colorize:
-                        # colorize from colno to end_colno
-                        ltext = (
-                            ltext[:colno] +
-                            ANSIColors.BOLD_RED + ltext[colno:end_colno] + ANSIColors.RESET +
-                            ltext[end_colno:]
-                        )
-                        start_color = ANSIColors.BOLD_RED
-                        end_color = ANSIColors.RESET
                     yield '    {}\n'.format(ltext)
                     yield '    {}{}{}{}\n'.format(
                         "".join(caretspace),
@@ -1348,17 +1271,7 @@ class TracebackException:
                 else:
                     yield '    {}\n'.format(ltext)
         msg = self.msg or "<no detail available>"
-        if colorize:
-            yield "{}{}{}: {}{}{}{}\n".format(
-                ANSIColors.BOLD_MAGENTA,
-                stype,
-                ANSIColors.RESET,
-                ANSIColors.MAGENTA,
-                msg,
-                ANSIColors.RESET,
-                filename_suffix)
-        else:
-            yield "{}: {}{}\n".format(stype, msg, filename_suffix)
+        yield "{}: {}{}\n".format(stype, msg, filename_suffix)
 
     def format(self, *, chain=True, _ctx=None, **kwargs):
         """Format the exception.
