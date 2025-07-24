@@ -868,7 +868,7 @@ void decompress_data_initializer(void)
             size_t pos = 4; // skip magic word
             size_t out_pos = 0;
             uint8_t flg = input[pos++];
-            uint8_t bd = input[pos++];                
+            pos++; //uint8_t bd = input[pos++]; 
             if (flg & 0x08) {
                 pos += 8; // skip content length
             }
@@ -963,7 +963,7 @@ static void log_buffer_append(char c)
 __attribute__((export_name("_optimized_out_function_panic_handler"))) 
 void optimized_out_function_panic_handler(const char *function_name)
 {
-    char buf[300];
+    static char buf[512];
     snprintf(buf, sizeof(buf),
              "Function '%s' has been optimized out of this WASM file via runtime profiling, but was called anyway. Please add '%s' to the pinned function list (via --pinned-functions=<name1>,<name2>,... nearc cmdline argument or [tool.nearc] pinned-functions=[\"name1\", \"name2\", ...] pyproject.toml section) and rebuild the project.",
              function_name, function_name);
@@ -1063,7 +1063,7 @@ __wasi_errno_t __wasi_fd_fdstat_get(__wasi_fd_t fd, __wasi_fdstat_t *stat)
 
 #define MAX_FROZEN_MODULE_HEADER_COUNT 512
 #define FROZEN_MODULE_HEADERS_BASE_ADDRESS 1048576
-#define FROZEN_MODULE_HEADER_MAX_PATH_LENGTH 56
+#define FROZEN_MODULE_HEADER_MAX_PATH_LENGTH 248
 
 typedef struct {
     uint32_t data_addr;
@@ -1081,7 +1081,10 @@ int frozen_module_path_exist(const char *path)
 {
     for (int i = 0; i != MAX_FROZEN_MODULE_HEADER_COUNT; ++i) {
         const FrozenModuleHeader *h = &frozen_module_data->headers[i];
-        if (h->data_addr != 0 && h->data_size != 0 && strncmp(path, (const char*)h->path, sizeof(h->path)) == 0) {
+        if (h->data_addr == 0 && h->data_size == 0) {
+            break;
+        }
+        if (strncmp(path, (const char*)h->path, sizeof(h->path)) == 0) {
             return true;
         }
     }
@@ -1091,10 +1094,14 @@ int frozen_module_path_exist(const char *path)
 __attribute__((export_name("_load_frozen_module"))) 
 const char *load_frozen_module(const char *path, Py_ssize_t *size_out)
 {
+    // printf("load_frozen_module(%s)\n", path);
     *size_out = 0;
     for (int i = 0; i != MAX_FROZEN_MODULE_HEADER_COUNT; ++i) {
         const FrozenModuleHeader *h = &frozen_module_data->headers[i];
-        if (h->data_addr != 0 && h->data_size != 0 && strncmp(path, (const char*)h->path, sizeof(h->path)) == 0) {
+        if (h->data_addr == 0 && h->data_size == 0) {
+            break;
+        }
+        if (strncmp(path, (const char*)h->path, sizeof(h->path)) == 0) {
             uint32_t header_length = 16; // skip the .pyc header without checking (16 bytes for Python 3.7+)
             *size_out = h->data_size - header_length;
             return (const char *)h->data_addr + header_length;

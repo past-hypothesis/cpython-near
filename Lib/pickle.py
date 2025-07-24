@@ -31,7 +31,6 @@ from functools import partial
 import sys
 from sys import maxsize
 from struct import pack, unpack
-import re
 import io
 import codecs
 import _compat_pickle
@@ -188,8 +187,7 @@ BYTEARRAY8       = b'\x96'  # push bytearray
 NEXT_BUFFER      = b'\x97'  # push next out-of-band buffer
 READONLY_BUFFER  = b'\x98'  # make top of stack readonly
 
-__all__.extend([x for x in dir() if re.match("[A-Z][A-Z0-9_]+$", x)])
-
+__all__.extend([x for x in dir() if len(x) > 0 and x[0].isupper() and x[0].isalpha() and all(c.isupper() or c.isdigit() or c == '_' for c in x)])
 
 class _Framer:
 

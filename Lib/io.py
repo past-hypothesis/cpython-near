@@ -42,7 +42,7 @@ __author__ = ("Guido van Rossum <guido@python.org>, "
               "Benjamin Peterson <benjamin@python.org>")
 
 __all__ = ["BlockingIOError", "open", "open_code", "IOBase", "RawIOBase",
-           "FileIO", "BytesIO", "StringIO", "BufferedIOBase",
+           "BytesIO", "StringIO", "BufferedIOBase",
            "BufferedReader", "BufferedWriter", "BufferedRWPair",
            "BufferedRandom", "TextIOBase", "TextIOWrapper",
            "UnsupportedOperation", "SEEK_SET", "SEEK_CUR", "SEEK_END",
@@ -53,7 +53,7 @@ import _io
 import abc
 
 from _io import (DEFAULT_BUFFER_SIZE, BlockingIOError, UnsupportedOperation,
-                 open, open_code, FileIO, BytesIO, StringIO, BufferedReader,
+                 open, open_code, BytesIO, StringIO, BufferedReader,
                  BufferedWriter, BufferedRWPair, BufferedRandom,
                  IncrementalNewlineDecoder, text_encoding, TextIOWrapper)
 
@@ -80,8 +80,6 @@ class BufferedIOBase(_io._BufferedIOBase, IOBase):
 
 class TextIOBase(_io._TextIOBase, IOBase):
     __doc__ = _io._TextIOBase.__doc__
-
-RawIOBase.register(FileIO)
 
 for klass in (BytesIO, BufferedReader, BufferedWriter, BufferedRandom,
               BufferedRWPair):

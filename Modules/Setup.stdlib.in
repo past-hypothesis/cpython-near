@@ -51,7 +51,7 @@ _lsprof
 _lzma
 _multibytecodec
 _opcode
-_pickle
+# _pickle
 _scproxy
 _socket
 _sqlite3

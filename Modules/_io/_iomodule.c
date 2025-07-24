@@ -579,7 +579,9 @@ iomodule_traverse(PyObject *mod, visitproc visit, void *arg) {
     Py_VISIT(state->PyBufferedWriter_Type);
     Py_VISIT(state->PyBytesIOBuffer_Type);
     Py_VISIT(state->PyBytesIO_Type);
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     Py_VISIT(state->PyFileIO_Type);
+#endif
     Py_VISIT(state->PyStringIO_Type);
     Py_VISIT(state->PyTextIOBase_Type);
     Py_VISIT(state->PyTextIOWrapper_Type);
@@ -605,7 +607,9 @@ iomodule_clear(PyObject *mod) {
     Py_CLEAR(state->PyBufferedWriter_Type);
     Py_CLEAR(state->PyBytesIOBuffer_Type);
     Py_CLEAR(state->PyBytesIO_Type);
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     Py_CLEAR(state->PyFileIO_Type);
+#endif
     Py_CLEAR(state->PyStringIO_Type);
     Py_CLEAR(state->PyTextIOBase_Type);
     Py_CLEAR(state->PyTextIOWrapper_Type);
@@ -701,7 +705,9 @@ iomodule_exec(PyObject *m)
              state->PyBufferedIOBase_Type);
 
     // PyRawIOBase_Type(PyIOBase_Type) subclasses
+#if !defined(__EMSCRIPTEN__) && !defined(__wasi__)
     ADD_TYPE(m, state->PyFileIO_Type, &fileio_spec, state->PyRawIOBase_Type);
+#endif
 
 #ifdef HAVE_WINDOWS_CONSOLE_IO
     ADD_TYPE(m, state->PyWindowsConsoleIO_Type, &winconsoleio_spec,
@@ -739,9 +745,9 @@ struct PyModuleDef _PyIO_Module = {
 PyMODINIT_FUNC
 PyInit__io(void)
 {
-#if defined(__EMSCRIPTEN__) || defined(__wasi__)
-    return 0;
-#else
+// #if defined(__EMSCRIPTEN__) || defined(__wasi__)
+//     return 0;
+// #else
     return PyModuleDef_Init(&_PyIO_Module);
-#endif
+// #endif
 }
